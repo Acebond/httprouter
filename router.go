@@ -122,7 +122,8 @@ var ParamsKey = paramsKey{}
 // ParamsFromContext pulls the URL parameters from a request context,
 // or returns nil if none are present.
 func GetParamsFromContext(ctx context.Context) Params {
-	return ctx.Value(ParamsKey).(Params)
+	p, _ := ctx.Value(ParamsKey).(Params)
+	return p
 }
 
 // GetParam returns the value of the first Param which key matches in the Context.
@@ -353,28 +354,24 @@ func (r *Router) Handle(method, path string, handle http.HandlerFunc) {
 // Handler is an adapter which allows the usage of an http.Handler as a
 // request handle.
 // The Params are available in the request context under ParamsKey.
-/*
 func (r *Router) Handler(method, path string, handler http.Handler) {
 	r.Handle(method, path,
-		func(w http.ResponseWriter, req *http.Request, p Params) {
-			if len(p) > 0 {
-				ctx := req.Context()
-				ctx = context.WithValue(ctx, ParamsKey, p)
-				req = req.WithContext(ctx)
-			}
+		func(w http.ResponseWriter, req *http.Request) {
+			//if len(p) > 0 {
+			//ctx := req.Context()
+			//ctx = context.WithValue(ctx, ParamsKey, p)
+			//req = req.WithContext(ctx)
+			//}
 			handler.ServeHTTP(w, req)
 		},
 	)
 }
-*/
 
 // HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
 // request handle.
-/*
 func (r *Router) HandlerFunc(method, path string, handler http.HandlerFunc) {
 	r.Handler(method, path, handler)
 }
-*/
 
 // ServeFiles serves files from the given file system root.
 // The path must end with "/*filepath", files are then served from the local
