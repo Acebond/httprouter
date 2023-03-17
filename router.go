@@ -6,30 +6,30 @@
 //
 // A trivial example is:
 //
-//  package main
+//	package main
 //
-//  import (
-//      "fmt"
-//      "github.com/julienschmidt/httprouter"
-//      "net/http"
-//      "log"
-//  )
+//	import (
+//	    "fmt"
+//	    "github.com/julienschmidt/httprouter"
+//	    "net/http"
+//	    "log"
+//	)
 //
-//  func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-//      fmt.Fprint(w, "Welcome!\n")
-//  }
+//	func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+//	    fmt.Fprint(w, "Welcome!\n")
+//	}
 //
-//  func Hello(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//      fmt.Fprintf(w, "hello, %s!\n", ps.ByName("name"))
-//  }
+//	func Hello(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+//	    fmt.Fprintf(w, "hello, %s!\n", ps.ByName("name"))
+//	}
 //
-//  func main() {
-//      router := httprouter.New()
-//      router.GET("/", Index)
-//      router.GET("/hello/:name", Hello)
+//	func main() {
+//	    router := httprouter.New()
+//	    router.GET("/", Index)
+//	    router.GET("/hello/:name", Hello)
 //
-//      log.Fatal(http.ListenAndServe(":8080", router))
-//  }
+//	    log.Fatal(http.ListenAndServe(":8080", router))
+//	}
 //
 // The router matches incoming requests by the request method and the path.
 // If a handle is registered for this path and method, the router delegates the
@@ -39,41 +39,45 @@
 //
 // The registered path, against which the router matches incoming requests, can
 // contain two types of parameters:
-//  Syntax    Type
-//  :name     named parameter
-//  *name     catch-all parameter
+//
+//	Syntax    Type
+//	:name     named parameter
+//	*name     catch-all parameter
 //
 // Named parameters are dynamic path segments. They match anything until the
 // next '/' or the path end:
-//  Path: /blog/:category/:post
 //
-//  Requests:
-//   /blog/go/request-routers            match: category="go", post="request-routers"
-//   /blog/go/request-routers/           no match, but the router would redirect
-//   /blog/go/                           no match
-//   /blog/go/request-routers/comments   no match
+//	Path: /blog/:category/:post
+//
+//	Requests:
+//	 /blog/go/request-routers            match: category="go", post="request-routers"
+//	 /blog/go/request-routers/           no match, but the router would redirect
+//	 /blog/go/                           no match
+//	 /blog/go/request-routers/comments   no match
 //
 // Catch-all parameters match anything until the path end, including the
 // directory index (the '/' before the catch-all). Since they match anything
 // until the end, catch-all parameters must always be the final path element.
-//  Path: /files/*filepath
 //
-//  Requests:
-//   /files/                             match: filepath="/"
-//   /files/LICENSE                      match: filepath="/LICENSE"
-//   /files/templates/article.html       match: filepath="/templates/article.html"
-//   /files                              no match, but the router would redirect
+//	Path: /files/*filepath
+//
+//	Requests:
+//	 /files/                             match: filepath="/"
+//	 /files/LICENSE                      match: filepath="/LICENSE"
+//	 /files/templates/article.html       match: filepath="/templates/article.html"
+//	 /files                              no match, but the router would redirect
 //
 // The value of parameters is saved as a slice of the Param struct, consisting
 // each of a key and a value. The slice is passed to the Handle func as a third
 // parameter.
 // There are two ways to retrieve the value of a parameter:
-//  // by the name of the parameter
-//  user := ps.ByName("user") // defined by :user or *user
 //
-//  // by the index of the parameter. This way you can also get the name (key)
-//  thirdKey   := ps[2].Key   // the name of the 3rd parameter
-//  thirdValue := ps[2].Value // the value of the 3rd parameter
+//	// by the name of the parameter
+//	user := ps.ByName("user") // defined by :user or *user
+//
+//	// by the index of the parameter. This way you can also get the name (key)
+//	thirdKey   := ps[2].Key   // the name of the 3rd parameter
+//	thirdValue := ps[2].Value // the value of the 3rd parameter
 package httprouter
 
 import (
@@ -86,7 +90,7 @@ import (
 // Handle is a function that can be registered to a route to handle HTTP
 // requests. Like http.HandlerFunc, but has a third parameter for the values of
 // wildcards (path variables).
-type Handle func(http.ResponseWriter, *http.Request, Params)
+// type Handle func(http.ResponseWriter, *http.Request, Params)
 
 // Param is a single URL parameter, consisting of a key and a value.
 type Param struct {
@@ -117,9 +121,18 @@ var ParamsKey = paramsKey{}
 
 // ParamsFromContext pulls the URL parameters from a request context,
 // or returns nil if none are present.
-func ParamsFromContext(ctx context.Context) Params {
-	p, _ := ctx.Value(ParamsKey).(Params)
-	return p
+func GetParamsFromContext(ctx context.Context) Params {
+	return ctx.Value(ParamsKey).(Params)
+}
+
+// GetParam returns the value of the first Param which key matches in the Context.
+func GetParamFromContext(ctx context.Context, key string) string {
+	return GetParamsFromContext(ctx).ByName(key)
+}
+
+// WithParams returns a new Context that contains ps.
+func WithParams(ctx context.Context, ps Params) context.Context {
+	return context.WithValue(ctx, ParamsKey, ps)
 }
 
 // MatchedRoutePathParam is the Param name under which the path of the matched
@@ -231,8 +244,9 @@ func (r *Router) putParams(ps *Params) {
 	}
 }
 
-func (r *Router) saveMatchedRoutePath(path string, handle Handle) Handle {
-	return func(w http.ResponseWriter, req *http.Request, ps Params) {
+/*
+func (r *Router) saveMatchedRoutePath(path string, handle http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
 		if ps == nil {
 			psp := r.getParams()
 			ps = (*psp)[0:1]
@@ -245,39 +259,40 @@ func (r *Router) saveMatchedRoutePath(path string, handle Handle) Handle {
 		}
 	}
 }
+*/
 
 // GET is a shortcut for router.Handle(http.MethodGet, path, handle)
-func (r *Router) GET(path string, handle Handle) {
+func (r *Router) GET(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodGet, path, handle)
 }
 
 // HEAD is a shortcut for router.Handle(http.MethodHead, path, handle)
-func (r *Router) HEAD(path string, handle Handle) {
+func (r *Router) HEAD(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodHead, path, handle)
 }
 
 // OPTIONS is a shortcut for router.Handle(http.MethodOptions, path, handle)
-func (r *Router) OPTIONS(path string, handle Handle) {
+func (r *Router) OPTIONS(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodOptions, path, handle)
 }
 
 // POST is a shortcut for router.Handle(http.MethodPost, path, handle)
-func (r *Router) POST(path string, handle Handle) {
+func (r *Router) POST(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodPost, path, handle)
 }
 
 // PUT is a shortcut for router.Handle(http.MethodPut, path, handle)
-func (r *Router) PUT(path string, handle Handle) {
+func (r *Router) PUT(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodPut, path, handle)
 }
 
 // PATCH is a shortcut for router.Handle(http.MethodPatch, path, handle)
-func (r *Router) PATCH(path string, handle Handle) {
+func (r *Router) PATCH(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodPatch, path, handle)
 }
 
 // DELETE is a shortcut for router.Handle(http.MethodDelete, path, handle)
-func (r *Router) DELETE(path string, handle Handle) {
+func (r *Router) DELETE(path string, handle http.HandlerFunc) {
 	r.Handle(http.MethodDelete, path, handle)
 }
 
@@ -289,7 +304,7 @@ func (r *Router) DELETE(path string, handle Handle) {
 // This function is intended for bulk loading and to allow the usage of less
 // frequently used, non-standardized or custom methods (e.g. for internal
 // communication with a proxy).
-func (r *Router) Handle(method, path string, handle Handle) {
+func (r *Router) Handle(method, path string, handle http.HandlerFunc) {
 	varsCount := uint16(0)
 
 	if method == "" {
@@ -302,10 +317,10 @@ func (r *Router) Handle(method, path string, handle Handle) {
 		panic("handle must not be nil")
 	}
 
-	if r.SaveMatchedRoutePath {
-		varsCount++
-		handle = r.saveMatchedRoutePath(path, handle)
-	}
+	//if r.SaveMatchedRoutePath {
+	//	varsCount++
+	//	handle = r.saveMatchedRoutePath(path, handle)
+	//}
 
 	if r.trees == nil {
 		r.trees = make(map[string]*node)
@@ -338,6 +353,7 @@ func (r *Router) Handle(method, path string, handle Handle) {
 // Handler is an adapter which allows the usage of an http.Handler as a
 // request handle.
 // The Params are available in the request context under ParamsKey.
+/*
 func (r *Router) Handler(method, path string, handler http.Handler) {
 	r.Handle(method, path,
 		func(w http.ResponseWriter, req *http.Request, p Params) {
@@ -350,12 +366,15 @@ func (r *Router) Handler(method, path string, handler http.Handler) {
 		},
 	)
 }
+*/
 
 // HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
 // request handle.
+/*
 func (r *Router) HandlerFunc(method, path string, handler http.HandlerFunc) {
 	r.Handler(method, path, handler)
 }
+*/
 
 // ServeFiles serves files from the given file system root.
 // The path must end with "/*filepath", files are then served from the local
@@ -366,7 +385,8 @@ func (r *Router) HandlerFunc(method, path string, handler http.HandlerFunc) {
 // of the Router's NotFound handler.
 // To use the operating system's file system implementation,
 // use http.Dir:
-//     router.ServeFiles("/src/*filepath", http.Dir("/var/www"))
+//
+//	router.ServeFiles("/src/*filepath", http.Dir("/var/www"))
 func (r *Router) ServeFiles(path string, root http.FileSystem) {
 	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
 		panic("path must end with /*filepath in path '" + path + "'")
@@ -374,10 +394,11 @@ func (r *Router) ServeFiles(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	r.GET(path, func(w http.ResponseWriter, req *http.Request, ps Params) {
-		req.URL.Path = ps.ByName("filepath")
+	r.GET(path, func(w http.ResponseWriter, req *http.Request) {
+		req.URL.Path = GetParamFromContext(req.Context(), "filepath")
 		fileServer.ServeHTTP(w, req)
 	})
+
 }
 
 func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
@@ -391,7 +412,7 @@ func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
 // If the path was found, it returns the handle function and the path parameter
 // values. Otherwise the third return value indicates whether a redirection to
 // the same path with an extra / without the trailing slash should be performed.
-func (r *Router) Lookup(method, path string) (Handle, Params, bool) {
+func (r *Router) Lookup(method, path string) (http.HandlerFunc, Params, bool) {
 	if root := r.trees[method]; root != nil {
 		handle, ps, tsr := root.getValue(path, r.getParams)
 		if handle == nil {
@@ -468,11 +489,11 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if root := r.trees[req.Method]; root != nil {
 		if handle, ps, tsr := root.getValue(path, r.getParams); handle != nil {
 			if ps != nil {
-				handle(w, req, *ps)
-				r.putParams(ps)
-			} else {
-				handle(w, req, nil)
+				req = req.WithContext(WithParams(req.Context(), *ps))
+				// handle(w, req)
+				//r.putParams(ps)
 			}
+			handle(w, req)
 			return
 		} else if req.Method != http.MethodConnect && path != "/" {
 			// Moved Permanently, request with GET method
